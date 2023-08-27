@@ -1,4 +1,6 @@
-# fantasy_sports
+# Fantasy Sports README
+Note: The below two articles were written on my Medium account linked below and use code in this rep.
+https://medium.com/@brian.cavers/how-to-win-at-prizepicks-part-2-23a1ead702eb
 
 **How to win at PrizePicks**
 
