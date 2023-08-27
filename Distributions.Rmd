@@ -1,0 +1,243 @@
+---
+title: "Fantasy Point Distributions"
+output: html_notebook
+---
+
+https://billpetti.github.io/baseballr/index.html
+
+```{r}
+#install.packages("baseballr")
+library(tidyverse)
+library(baseballr)
+
+#help(package=baseballr)
+```
+
+
+```{r}
+# Initial attempt, doesnt work in loop below
+
+#chadwick_player_lu()
+player_ids_raw <- data.frame(get_chadwick_lu())
+player_ids <- player_ids_raw %>% 
+  filter(!is.na(key_fangraphs)) %>%
+  filter(pro_played_first >= 2000 ) %>% 
+  select(name_last,name_first,key_fangraphs) 
+
+head(player_ids_raw,100)  
+head(player_ids,100)  
+player_ids_test <- player_ids %>% 
+  select(key_fangraphs) %>% 
+  #filter(key_fangraphs %in% c(18401,19339)) %>% 
+  arrange(key_fangraphs) %>% 
+  unlist() %>% 
+  as.numeric()
+
+# also doesnt work
+fg_batter_leaders(2022, 2022, league = "all", qual = "y", ind = 1, exc_p = TRUE)
+
+# 18401 # Acuna
+# 19339 # Nicky Lopez
+
+```
+```{r}
+# CSV of recent hitters from Fangraphs to get Fangraphs playerIDs
+df_fg <- read.csv('C:/Users/bcave/OneDrive/Documents/R/Fangraphs data/qualified_batters_2020_2023.csv')
+#df_fg <- read.csv('C:/Users/bcave/OneDrive/Documents/R/Fangraphs data/batters_2020_2023_100_PA_yr.csv')
+player_ids_test <- df_fg %>% distinct(PlayerId) %>% unlist() %>% as.numeric()
+nrow(df_fg)
+length(player_ids_test)
+```
+
+
+```{r, warning=FALSE}
+df_total = data.frame()
+for (x in player_ids_test){
+    df = batter_game_logs_fg(playerid = x, year = 2023) %>% 
+      # only selecting fields I need due to some records having different columns so rbind wont work
+      select(PlayerName,playerid,Date,Team,season,BatOrder,Pos,G,PA,'1B','2B','3B',HR,R,RBI,BB,IBB,HBP,SB,CS)
+    
+    # add vector to a dataframe
+    df_append <- data.frame(df)
+    df_total <- rbind(df_total,df_append)
+}
+
+#batter_game_logs_fg(playerid = 19339, year = 2023) # Acuna's 2023 raw output
+#batter_game_logs_fg(playerid = 21534, year = 2023)
+df_total #5210 #4255 #12098
+```
+```{r}
+# Only want games the player started
+# Count by positions
+df_total %>% group_by(Pos) %>% summarize(cnt = n()) %>% arrange(desc(cnt))
+
+df_total <- df_total %>% filter(!str_detect(Pos,"PH")) %>% 
+  filter(!str_detect(Pos,"PR"))
+
+# confirm no pinch hit or pinch run opportunities any more
+df_total %>% group_by(Pos) %>% summarize(cnt = n()) %>% arrange(desc(cnt))
+```
+
+
+```{r}
+# Calculate fantasy points
+df_total <- df_total %>% 
+  mutate(
+  # PrizePicks
+    #fantasy_pts = X1B*3 + X2B*5 + X3B*8 + HR*10 + R*2 + RBI*2 + BB*2 + IBB*2 + HBP*2 + SB*5 
+  # Underdog
+    #fantasy_pts = X1B*3 + X2B*6 + X3B*8 + HR*10 + R*2 + RBI*2 + BB*3 + IBB*3 + HBP*3 + SB*4 
+  # ParlayPlay
+    #fantasy_pts = X1B*3 + X2B*6 + X3B*9 + HR*12 + R*3 + RBI*3 + BB*3 + IBB*3 + HBP*3 + SB*6 
+  # SuperDraft
+    #fantasy_pts = X1B*2 + X2B*4 + X3B*6 + HR*8 + R*2 + RBI*2 + BB*2 + IBB*2 + HBP*2 + SB*3 
+  # RT Sports
+    #fantasy_pts = X1B*3 + X2B*5 + X3B*8 + HR*10 + R*2.2 + RBI*2.5 + BB*3 + IBB*3 + HBP*3 + SB*5 
+  # Betr
+    #fantasy_pts = X1B*1 + X2B*2 + X3B*3 + HR*4 + R*1 + RBI*1 + BB*1 + IBB*1 + HBP*1 + SB*2 + CS*(-1)
+  # Phantasia
+    fantasy_pts = X1B*3 + X2B*5 + X3B*8 + HR*10 + R*2 + RBI*2 + BB*2 + IBB*2 + HBP*2 + SB*0     
+        )
+
+#df_total
+df_total %>% group_by(fantasy_pts) %>% summarize(cnt = n())
+```
+
+```{r}
+# View distributions of fantasy points - overall
+ggplot(df_total , aes(x=fantasy_pts)) + 
+  geom_density(size=1) + 
+  geom_vline(aes(xintercept=mean(fantasy_pts)), color="blue", linetype="dashed", size=0.9) +
+  geom_vline(aes(xintercept=median(fantasy_pts)), color="red", linetype="dashed", size=0.9) +
+  annotate("label", x = Inf, y = Inf, hjust=2.4, vjust=1.8, label = paste("mean = ",round(mean(df_total$fantasy_pts),1), " median = ",round(median(df_total$fantasy_pts),1) ) ) +
+  xlim(NA,40)
+
+ggplot(df_total , aes(x=fantasy_pts)) + 
+  geom_histogram() 
+```
+
+```{r}
+# Break out distributions by different averages
+set.seed(125)
+
+# Take random samples of N size and average them
+n_games = 40 # number of games in each sample (a small/medium number)
+n_sims = 100000 # number of times to sample (a large number)
+rounder = 1 # decimal points to round to 
+
+# data of just variable of interest
+df_total_fp <- df_total$fantasy_pts
+
+```
+
+
+```{r}
+## Create the matrix to hold the raw sampled data
+sampled.data.raw <- matrix(data = NA, nrow = n_sims, ncol = n_games+1)
+
+for(i in 1:n_sims) {
+  a <- df_total_fp[sample(1:length(df_total_fp), size=n_games, replace=TRUE)]
+  #mean.total <- round(mean(a),rounder)
+  #mean.total <- round(mean(a)*2)/2 # this rounds to every half integer
+  mean.total <- round(mean(a)*4)/4 # this rounds to every 0.25
+  #mean.total <- round(mean(a)*5)/5 # this rounds to every 0.2
+  sampled.data.raw[i,1] <- mean.total    		# Save the mean(total)
+  sampled.data.raw[i,2:(n_games+1)] <- a           	# Save the data
+}
+
+## Combine similar means
+sampled.data.raw <- as_tibble(sampled.data.raw)
+sampled.data.raw
+
+# See distribution of sampling means
+sampled.data.raw %>% group_by(V1) %>% summarize(cnt=n())
+```
+
+
+```{r}
+## Filter for each value
+k_val = 3.4
+over_und = 2
+
+data.comb <- sampled.data.raw %>% filter(V1==k_val) 
+
+## Plot distribution of all non-means
+data.comb_nm <- data.comb %>% select(-V1) %>% gather() %>% select(value)   # put all in one column
+
+data.perc <- data.comb_nm %>% 
+  summarize (
+    cnt = n() ,
+    n_over = sum(value>over_und) , # greater than line
+    n_under = sum(value<over_und) , # less than line
+    n_tie = sum(value==over_und) , # ties line
+    perc_over = n_over / cnt,
+    perc_under = n_under / cnt,
+    perc_tie = n_tie / cnt,
+    perc_over_w_tie = perc_over + perc_tie*0.25, 
+    perc_under_w_tie = perc_under + perc_tie*0.25, 
+    )
+data.perc
+
+result <- as_tibble(
+  cbind(
+    Mean_proj = k_val,
+    Line = over_und,
+    Name = c("over","under","tie","over with 1/4 tie","under with 1/4 tie"),
+    Count = c(data.perc$n_over, data.perc$n_under, data.perc$n_tie, 0, 0) ,
+    Prob = c(data.perc$perc_over, data.perc$perc_under, data.perc$perc_tie, data.perc$perc_over_w_tie, data.perc$perc_under_w_tie )) )
+result
+
+data.comb_nm %>% 
+    ggplot(aes(value)) +
+    geom_histogram() +
+    #geom_density() +
+    geom_vline(aes(xintercept=mean(value)), color="blue", linetype="dashed", size=0.9) +
+   geom_vline(aes(xintercept=median(value)), color="red", linetype="dashed", size=0.9) +
+    annotate("label", x = Inf, y = Inf, hjust=2.4, vjust=1.8, label = paste("mean = ",round(mean(data.comb_nm$value),1), " median = ",round(median(data.comb_nm$value),1) ) ) +
+  xlim(NA,40) +
+  labs(title=paste('Mean of ',mean(k_val)), x="Fantasy points") +
+  theme( axis.title.y = element_blank()
+         )
+
+```
+
+```{r}
+result_total = data.frame() # create empty data frame
+
+for (k_val in seq(4.0,12.0, by=0.25) ) {
+  for (over_und in seq(4.0,12.0, by=0.5) ) {
+
+data.comb <- sampled.data.raw %>% filter(V1==k_val) 
+data.comb_nm <- data.comb %>% select(-V1) %>% gather() %>% select(value)   # put all in one column
+
+data.perc <- data.comb_nm %>% 
+  summarize (
+    cnt = n() ,
+    n_over = sum(value>over_und) , # greater than line
+    n_under = sum(value<over_und) , # less than line
+    n_tie = sum(value==over_und) , # ties line
+    perc_over = n_over / cnt,
+    perc_under = n_under / cnt,
+    perc_tie = n_tie / cnt,
+    perc_over_w_tie = perc_over + perc_tie*0.25, 
+    perc_under_w_tie = perc_under + perc_tie*0.25, 
+    )
+
+result <- as_tibble(
+  cbind(
+    Mean_proj = k_val,
+    Line = over_und,
+    Name = c("over","under","tie","over with 1/4 tie","under with 1/4 tie"),
+    Count = c(data.perc$n_over, data.perc$n_under, data.perc$n_tie, 0, 0) ,
+    Prob = c(data.perc$perc_over, data.perc$perc_under, data.perc$perc_tie, data.perc$perc_over_w_tie, data.perc$perc_under_w_tie )) )
+    
+# append to a dataframe
+    result_total <- rbind(result_total,result)
+  }
+}
+
+# Export to csv
+ write_csv(result_total, "sim_results.csv")
+```
+
+
