@@ -1,0 +1,260 @@
+---
+title: "Prizepicks Sims"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+Base_prob = .56   # probability of any one leg of the parlay being correct
+Corr_adj = .05   # how many percentage points to adjust up/down if the paired pick wins/loses
+num_sims = 100000  # how many random numbers to generate
+```
+
+
+# 4 legs 
+```{r}
+sims <- rbinom(num_sims, 1, Base_prob)
+#sims
+#mean(sims)
+
+sims_second <- runif(length(sims))
+#head(sims_second,100)
+#length(sims_second)
+#mean(sims_second)
+
+sims_correl <- numeric()
+for (x in 1:length(sims)) {
+  sims_correl[x] <- ifelse(sims[x]==1 , 
+                           ifelse(sims_second[x]<=Base_prob+Corr_adj , 1, 0 ),
+                           ifelse(sims_second[x]<=Base_prob-Corr_adj , 1, 0 ) # if first record loses
+                           ) 
+  }
+
+#sims_correl
+#mean(sims_correl)
+
+# How often win both?
+#cat("Win percentage if no correlation ", Base_prob*Base_prob, "\n") 
+#cat("Win percentage with correlation ", mean(sims * sims_correl), "\n") 
+
+# second pair
+sims_2 <- rbinom(num_sims, 1, Base_prob)
+sims_second_2 <- runif(length(sims_2))
+sims_correl_2 <- numeric()
+for (x in 1:length(sims_2)) {
+  sims_correl_2[x] <- ifelse(sims_2[x]==1 , 
+                           ifelse(sims_second_2[x]<=Base_prob+Corr_adj , 1, 0 ),
+                           ifelse(sims_second_2[x]<=Base_prob-Corr_adj , 1, 0 ) # if first record loses
+                           ) }
+# How often win both?
+#cat("Win percentage if no correlation ", Base_prob*Base_prob, "\n") 
+#cat("Win percentage with correlation ", mean(sims_2 * sims_correl_2))
+
+win_table <- sims + sims_correl + sims_2 + sims_correl_2
+#table(win_table)
+
+# How often win all four?
+cat("Win all if no correlation: ", Base_prob^4, "\n") 
+cat("Win all with correlation: ", mean(sims * sims_correl * sims_2 * sims_correl_2), "\n")
+
+# How often win three?
+cat("Win three: ", sum(win_table == 3) / length(win_table), "\n", "\n"  )
+
+roi_4_flex = mean(sims * sims_correl * sims_2 * sims_correl_2 ) * 5 +
+  sum(win_table == 3) / length(win_table) * 1.5 - 1
+roi_4_power = mean(sims * sims_correl * sims_2 * sims_correl_2) * 10 - 1
+
+cat("Flex 4 ROI = ", roi_4_flex, "\n")
+cat("Power 4 ROI = ", roi_4_power)
+```
+
+# 6 legs 
+```{r}
+sims <- rbinom(num_sims, 1, Base_prob)
+sims_second <- runif(length(sims))
+sims_correl <- numeric()
+for (x in 1:length(sims)) {
+  sims_correl[x] <- ifelse(sims[x]==1 , 
+                           ifelse(sims_second[x]<=Base_prob+Corr_adj , 1, 0 ),
+                           ifelse(sims_second[x]<=Base_prob-Corr_adj , 1, 0 ) # if first record loses
+                           ) }
+
+# second pair
+sims_2 <- rbinom(num_sims, 1, Base_prob)
+sims_second_2 <- runif(length(sims_2))
+sims_correl_2 <- numeric()
+for (x in 1:length(sims_2)) {
+  sims_correl_2[x] <- ifelse(sims_2[x]==1 , 
+                           ifelse(sims_second_2[x]<=Base_prob+Corr_adj , 1, 0 ),
+                           ifelse(sims_second_2[x]<=Base_prob-Corr_adj , 1, 0 ) # if first record loses
+  ) }
+
+# third pair
+sims_3 <- rbinom(num_sims, 1, Base_prob)
+sims_second_3 <- runif(length(sims_3))
+sims_correl_3 <- numeric()
+for (x in 1:length(sims_3)) {
+  sims_correl_3[x] <- ifelse(sims_3[x]==1 , 
+                           ifelse(sims_second_3[x]<=Base_prob+Corr_adj , 1, 0 ),
+                           ifelse(sims_second_3[x]<=Base_prob-Corr_adj , 1, 0 ) # if first record loses
+                           ) }
+win_table <- sims + sims_correl + sims_2 + sims_correl_2 + sims_3 + sims_correl_3
+#table(win_table)
+
+# How often win all six?
+cat("Win all if no correlation: ", Base_prob^6, "\n") 
+cat("Win all with correlation: ", mean(sims * sims_correl * sims_2 * sims_correl_2 * sims_3 * sims_correl_3), "\n")
+
+# How often win five?
+cat("Win five: ", sum(win_table == 5) / length(win_table), "\n" )
+
+# How often win four?
+cat("Win four: ", sum(win_table == 4) / length(win_table), "\n", "\n"  )
+
+roi_6_flex = mean(sims * sims_correl * sims_2 * sims_correl_2 * sims_3 * sims_correl_3) * 25 +
+  sum(win_table == 5) / length(win_table) * 2 +
+  sum(win_table == 4) / length(win_table) *.4 - 1
+
+cat("Flex 6 ROI = ", roi_6_flex)
+
+```
+
+# 5 legs
+```{r}
+sims <- rbinom(num_sims, 1, Base_prob)
+sims_second <- runif(length(sims))
+sims_correl <- numeric()
+for (x in 1:length(sims)) {
+  sims_correl[x] <- ifelse(sims[x]==1 , 
+                           ifelse(sims_second[x]<=Base_prob+Corr_adj , 1, 0 ),
+                           ifelse(sims_second[x]<=Base_prob-Corr_adj , 1, 0 ) # if first record loses
+  ) }
+
+# second pair
+sims_2 <- rbinom(num_sims, 1, Base_prob)
+sims_second_2 <- runif(length(sims_2))
+sims_correl_2 <- numeric()
+for (x in 1:length(sims_2)) {
+  sims_correl_2[x] <- ifelse(sims_2[x]==1 , 
+                           ifelse(sims_second_2[x]<=Base_prob+Corr_adj , 1, 0 ),
+                           ifelse(sims_second_2[x]<=Base_prob-Corr_adj , 1, 0 ) # if first record loses
+  ) }
+
+# fifth bet that is uncorrelated
+sims_fifth <- rbinom(num_sims, 1, Base_prob)
+#head(sims_fifth,100)
+#mean(sims_fifth)
+
+win_table <- sims + sims_correl + sims_2 + sims_correl_2 + sims_fifth
+#table(win_table)
+
+# How often win all five?
+cat("Win all if no correlation: ", Base_prob^5, "\n") 
+cat("Win all with correlation: ", mean(sims * sims_correl * sims_2 * sims_correl_2 * sims_fifth), "\n")
+
+# How often win four?
+cat("Win four: ", sum(win_table == 4) / length(win_table), "\n" )
+
+# How often win three?
+cat("Win three: ", sum(win_table == 3) / length(win_table), "\n", "\n"  )
+
+roi_5_flex = mean(sims * sims_correl * sims_2 * sims_correl_2 * sims_fifth) * 10 +
+  sum(win_table == 4) / length(win_table) * 2 +
+  sum(win_table == 3) / length(win_table) *.4 - 1
+
+cat("Flex 5 ROI = ", roi_5_flex)
+```
+
+# 3 legs
+```{r}
+sims <- rbinom(num_sims, 1, Base_prob)
+sims_second <- runif(length(sims))
+sims_correl <- numeric()
+for (x in 1:length(sims)) {
+  sims_correl[x] <- ifelse(sims[x]==1 , 
+                           ifelse(sims_second[x]<=Base_prob+Corr_adj , 1, 0 ),
+                           ifelse(sims_second[x]<=Base_prob-Corr_adj , 1, 0 ) # if first record loses
+  ) }
+
+# third bet that is uncorrelated
+sims_third <- rbinom(num_sims, 1, Base_prob)
+#head(sims_third,100)
+#mean(sims_third)
+
+win_table <- sims + sims_correl + sims_third
+#table(win_table)
+
+# How often win all three?
+cat("Win all if no correlation: ", Base_prob^3, "\n") 
+cat("Win all with correlation: ", mean(sims * sims_correl * sims_third), "\n")
+
+# How often win two?
+cat("Win two :", sum(win_table == 2) / length(win_table), "\n", "\n" )
+
+roi_3_flex = mean(sims * sims_correl * sims_third) * 2.25 +
+  sum(win_table == 2) / length(win_table) * 1.25 - 1
+roi_3_power = mean(sims * sims_correl * sims_third) * 5 -1
+
+cat("Flex 3 ROI = ", roi_3_flex, "\n")
+cat("Power 3 ROI = ", roi_3_power)
+
+```
+
+```{r}
+# Organize all ROIs for easy copying to Excel
+cat("Power 3 ROI = ", roi_3_power,"\n")
+cat("Power 4 ROI = ", roi_4_power,"\n")
+cat("Flex 3 ROI = ", roi_3_flex,"\n")
+cat("Flex 4 ROI = ", roi_4_flex,"\n")
+cat("Flex 5 ROI = ", roi_5_flex,"\n")
+cat("Flex 6 ROI = ", roi_6_flex,"\n")
+```
+
+
+# Simulate bankroll growth
+## 5 leg flex
+```{r}
+sims <- rbinom(num_sims, 1, Base_prob)
+sims_second <- runif(length(sims))
+sims_correl <- numeric()
+for (x in 1:length(sims)) {
+  sims_correl[x] <- ifelse(sims[x]==1 , 
+                           ifelse(sims_second[x]<=Base_prob+Corr_adj , 1, 0 ),
+                           ifelse(sims_second[x]<=Base_prob-Corr_adj , 1, 0 ) # if first record loses
+  ) }
+
+# second pair
+sims_2 <- rbinom(num_sims, 1, Base_prob)
+sims_second_2 <- runif(length(sims_2))
+sims_correl_2 <- numeric()
+for (x in 1:length(sims_2)) {
+  sims_correl_2[x] <- ifelse(sims_2[x]==1 , 
+                           ifelse(sims_second_2[x]<=Base_prob+Corr_adj , 1, 0 ),
+                           ifelse(sims_second_2[x]<=Base_prob-Corr_adj , 1, 0 ) # if first record loses
+  ) }
+
+# fifth bet that is uncorrelated
+sims_fifth <- rbinom(num_sims, 1, Base_prob)
+
+win_table <- sims + sims_correl + sims_2 + sims_correl_2 + sims_fifth
+#table(win_table)
+
+# for bankroll growth
+win_table_payouts <- ifelse(win_table==5, 10,
+                            ifelse(win_table==4, 2,
+                            ifelse(win_table==3, 0.4, 0)))
+mean(win_table_payouts) # is same as ROI
+
+bet_perc = .01
+starting_roll = 10000
+bet_size = bet_perc * starting_roll
+
+p_l_table <- bet_size * win_table_payouts - bet_size
+mean(p_l_table)
+cumsum(p_l_table)
+```
+
